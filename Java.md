@@ -305,7 +305,81 @@ Spring AOP使用此代理实现。此方法，会继承目标对象，所以需�
 
 ### 1. Spring系列
 
-#### Spring循环引用
+#### Spring循环依赖
+
+在Spring里，是由容器去创建对象，也就是通常所说的IOC。循环依赖是指，对象间相互依赖形成了环。比如，对象A依赖对象B，对象B依赖对象C，对象C依赖对象A，这样就构成了一个循环依赖。
+
+循环依赖可以分为以下几种：
+
+* 构造函数参数循环依赖：无法解决
+* setter循环依赖
+  * 单例模式：可解决
+  * 非单例模式：无法解决
+
+spring单例对象初始化的过程，大致可分为三步：
+
+1. createBeanInstance：实例化bean，调用构造方法
+2. populateBean：填充熟悉，主要对bean的熟悉进行填充
+3. initializeBean：调用spring xml里配置的init方法，或者注解@PostConstruct声明的方法。
+
+从单例bean的初始化的过程，可知，循环依赖是发生在第一步和第二步。
+
+##### 构造器循环依赖
+
+`this.singletonsCurrentlyInCreation.add(beanName)`将当前正要创建的bean记录在缓存中。Spring容器会将每一个正在创建的bean的标识符放到"当前创建bean池"，bean标识符在创建的过程中将一直保持在这个池中。因此，如果在创建bean的过程中发现自己已经在"当前创建bean池"里，则会抛出BeanCurrentlyInCreationException异常表示循环依赖。如果bean创建完成，那么将会从"当前创建bean池"移除。
+
+##### setter单例循环依赖
+
+Spring为解决单例循环依赖问题，使用了三级缓存。
+
+~~~Java
+/** Cache of singleton objects: bean name –> bean instance */
+private final Map singletonObjects = new ConcurrentHashMap(256);
+/** Cache of singleton factories: bean name –> ObjectFactory */
+private final Map> singletonFactories = new HashMap>(16);
+/** Cache of early singleton objects: bean name –> bean instance */
+private final Map earlySingletonObjects = new HashMap(16);
+~~~
+
+三级缓存的作用：
+
+~~~Java
+singletonObjects: 单例对象的cache
+singletonFactories: 单例对象工厂的cache
+earlySingletonObjects: 提前曝光的单例对象cache
+~~~
+
+创建bean的代码如下：
+
+~~~Java
+protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+    Object singletonObject = this.singletonObjects.get(beanName);
+    //isSingletonCurrentlyInCreation() 判断当前单例bean是否正在创建中
+    if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+        synchronized (this.singletonObjects) {
+            singletonObject = this.earlySingletonObjects.get(beanName);
+            //allowEarlyReference 是否允许从singletonFactories中通过getObject拿到对象
+            if (singletonObject == null && allowEarlyReference) {
+                ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
+                if (singletonFactory != null) {
+                    singletonObject = singletonFactory.getObject();
+                    //从singletonFactories中移除，并放入earlySingletonObjects中。
+                    //其实也就是从三级缓存移动到了二级缓存
+                    this.earlySingletonObjects.put(beanName, singletonObject);
+                    this.singletonFactories.remove(beanName);
+                }
+            }
+        }
+    }
+    return (singletonObject != NULL_OBJECT ? singletonObject : null);
+}
+~~~
+
+首先从一级缓存 singletonObjects 获取，如果没有且当前指定的 beanName 正在创建，就再从二级缓存中 earlySingletonObjects 获取，如果还是没有获取到且运行 singletonFactories 通过 `getObject()` 获取，则从三级缓存 singletonFactories 获取，如果获取到则，通过其 `getObject()` 获取对象，并将其加入到二级缓存 earlySingletonObjects 中 从三级缓存 singletonFactories 删除。
+
+##### 非单例循环依赖
+
+对于“prototype”作用域bean, Spring 容器无法完成依赖注入，因为Spring 容器不进行缓 存“prototype”作用域的bean ，因此无法提前暴露一个创建中的bean 。
 
 #### Spring事物分析
 
