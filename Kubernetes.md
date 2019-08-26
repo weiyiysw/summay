@@ -217,9 +217,10 @@ modprobe br_netfilter
 echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables
 echo '1' > /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
-# 在 /etc/sysctl.conf添加这三行
+# 在 /etc/sysctl.conf添加这两行
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
+# 执行此命令，使其生效
 sysctl -p
 ~~~
 
@@ -516,7 +517,237 @@ Kubernetes启动的容器会在DNS搜索中自动包含此DNS服务器。
 ## kubectl namespace
 
 ~~~shell
+# create namespace
+kubectl create namespace test
+
+# display current namespace
+kubectl config view --minify --output 'jsonpath={..namespace}'
+
 # change namespace
-kubectl config set-context --current --namespace=default
+kubectl config set-context --current --namespace=test
+~~~
+
+
+
+# 两种HA架构
+
+* Stacked etcd
+* external etcd
+
+![](./images/kubeadm-ha-topology-stacked-etcd.svg)
+
+![](./images/kubeadm-ha-topology-external-etcd.svg)
+
+---
+
+~~~shell
+kubeadm init  --kubernetes-version=v1.15.0  --pod-network-cidr=10.244.0.0/16 --service-cidr=10.96.0.0/12 --ignore-preflight-errors=Swap --apiserver-advertise-address=0.0.0.0 --image-repository registry.aliyuncs.com/google_containers
+
+kubeadm join 172.27.0.12:6443 --token bhirgz.2kwhcr4jd3h5dloy \
+    --discovery-token-ca-cert-hash sha256:aa9c7ebd9b29c409a861a28d3e8dc9f8ec9c4276338c8590d1894a310675bb6c
+~~~
+
+~~~shell
+# 运行沙箱
+kubectl run busybox -it --image=busybox --restart=Never --rm
+
+~~~
+
+~~~shell
+# centos
+# 设置hostname, $name
+hostnamectl set-hostname $name
+
+# 安装pip
+$ wget https://bootstrap.pypa.io/get-pip.py
+$ sudo python get-pip.py
+$ pip -V
+pip 9.0.1 from /usr/lib/python2.7/site-packages (python 2.7)
+~~~
+
+---
+
+# Kubernetes持久化存储
+
+在kubernetes里，POD是有生命周期的。假设运行了一段时间的POD因未知因素而被迫退出，那么K8S会自动重建这个POD，但是重新建立的POD是以镜像的**初始状态**建立的。
+
+如果我们的POD是无状态的（Stateless）服务，这对我们来说是毫无影响的。如果我们的POD是有状态的（Stateful），那对我们的服务来说，这是致命的，因为这无法恢复之前的状态。
+
+> 举例，MySQL就是有状态的服务，如果MySQL的POD退出，那么之前的数据应该保留。如果以初始状态建立新的POD，那么我们将丢失所有的数据，如此，MySQL服务也就没有意义了。
+
+K8S通过卷（Volume）进行持久化存储。卷是POD的组成部分，因此也可以被定义在POD的配置里。卷不是一个单独的K8S对象，不能单独的创建和删除。卷对POD里的所有容器都可用的，但是必须将卷挂载到每个容器才能访问。
+
+## 卷的类型
+
+* emptyDir：简单的空目录用于存储瞬时数据。
+* hostPath：将node节点的文件系直接挂载到POD上。
+* gitRepo：通过检出git仓库的内容初始化卷。
+* nfs：NFS共享网络存储。
+* gcePersistentDisk (Google Compute Engine Persistent Disk), awsElasticBlockStore (Amazon Web Services Elastic Block Store Volume), azureDisk
+  (Microsoft Azure Disk Volume) ：用于挂载云服务商提供的特定存储。
+* cinder, cephfs, iscsi, flocker, glusterfs, quobyte, rbd, flexVolume, vsphereVolume, photonPersistentDisk, scaleIO：用于挂载其他类型的网络存储。
+* configMap, secret, downwardAPI：特定的类型的卷，用于给POD公开确定的K8S资源和集群信息。
+* persistentVolumeClaim：预先或动态分配持久化存储的方式。
+
+卷的类型有很多，当你需要使用的时候学习即可。一个单一的POD在同一实际可以使用多个不同类型的多个卷。卷也可以用来在多个容器之间共享数据。
+
+## K8S解耦底层存储技术
+
+K8S的基本思想是对应用以及应用的开发者隐藏实际的基础设施。开发者部署他们的应用到K8S中，应该不需要知道底层是使用什么存储技术，同样的，也不需要知道运行POD的是什么样的物理服务器。当开发者需要给他们的应用确定数量的持久化存储，他们只需向K8S请求即可，就像在创建POD的时候请求CPU、内存和其他资源一样。
+
+### Persistent Volume(PV) 和 Persistent Volume Claim PVC
+
+PV和PVC是K8S用来解耦底层存储的技术，PV和PVC是K8S的两个新的资源对象。需要由集群管理员创建。
+
+## NFS
+
+### 安装NFS
+
+~~~shell
+> yum install -y nfs-utils rpcbind
+
+> mkdir -p /nfsdata
+> echo "/nfsdata *(rw,no_root_squash,no_all_squash,sync)" >> /etc/exports
+
+# 启动
+> systemctl start nfs
+> systemctl start rpcbind
+
+# 配置开机自启
+> systemctl enable nfs
+
+# 测试nfs server，在其他机器上
+> showmount -e $nfsIP
+~~~
+
+## Persistent Volume（PV）
+
+PV并不属于任何namespace，它属于集群。
+
+创建PV，我们可以定义如下的`mypv.yaml`
+
+~~~yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mypv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  nfs:
+    path: /nfsdata
+    server: 192.168.56.101
+~~~
+
+~~~shell
+# create pv
+> kubectl apply -f mypv.yaml
+
+# pv也是k8s的对象，因此，我们可以查看PV、删除PV等一系列操作
+> kubectl get pv
+~~~
+
+## Persistent Volume Claim（PVC）
+
+PVC可以属于某一个namespace。
+
+创建一个PVC，我们可以定义如下的`mypvc.yaml`
+
+~~~yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs
+~~~
+
+~~~shell
+# 创建pvc，只要你一创建pvc，k8s将会找到一个合适的PV绑定到pvc。
+> kubectl apply -f mypvc.yaml
+
+# 查看pvc
+> kubectl get pvc
+~~~
+
+### POD中使用PVC
+
+创建POD，并使用pvc，我们以yaml形式创建， 如：命名为`demo.yaml`。
+
+~~~yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: test-pvc
+  name: test-app
+  labels:
+    app: daq
+    use: api
+spec:
+  restartPolicy: Always
+  containers:
+    - name: test-app
+      image: (your test app image)
+      resources:
+        requests:
+          cpu: 0.2
+          memory: 200Mi
+        limits:
+          cpu: 0.5
+          memory: 500Mi
+      ports:
+      - containerPort: 8080
+      volumeMounts:
+      - mountPath: /opt
+        name: test-pvc
+  volumes:
+    - name: test-pvc
+      persistentVolumeClaim:
+        claimName: mypvc
+~~~
+
+~~~shell
+# 运行POD
+> kubectl apply -f demo.yaml
+~~~
+
+----
+
+# StatefulSets：部署多个stateful应用
+
+## 复制有状态的POD
+
+副本集根据单一的POD模板创建多个POD副本。这些副本之间并没有什么区别，除了他们的名字和IP地址。如果POD模板包含特定的PVC关联的卷，副本集里所有的POD都会使用相同的PVC，因此POD都绑定在相同的PV上。
+
+因为对声明的引用位于pod模板中，该模板用于标记多个pod副本，你不能为每一个副本创建独立使用的PVC。你不能使用一个副本集（ReplicaSet）运行每个实例都需要独立存储的分布式数据存储，至少不能使用一个单一的副本集。
+
+## 为每个POD提供一个固定的标识
+
+除了存储，某些集群应用也需要每个实例都具有一个长期存活的稳定标识。随着时间的推移，POD可以被杀死或者被替换为一个新的。当副本集替换一个POD时，新的POD完全是个有新的主机名和IP的新的POD，并且在他们存储卷里的数据可能被POD杀掉。
+
+某些应用拥有一个稳定的网络标识，这个需求在分布式的有状态应用里是非常普遍的。某些应用程序要求管理员在每个成员的配置文件中列出所有其他集群成员及其IP地址（或主机名）。但是在K8S中，每次POD被重新调度，新的POD就会获取新的主机名和IP地址，所以整个应用集群的成员被重新调度时都需要重新去配置。
+
+## StatefulSet
+
+创建一个StatefulSet资源代替ReplicaSet来运行这种类型的POD。StatefulSet是专门针对应用程序的实例必须被视为不可替代的个人的应用程序，每个应用程序具有稳定的名称和状态。
+
+## 节点
+
+~~~shell
+# $hostname，是主机名
+# master节点当node使用
+> kubectl taint node $hostname node-role.kubernetes.io/master-
+
+# master恢复成master only状态
+> kubectl taint node $hostname node-role.kubernetes.io/master="":NoSchedule
 ~~~
 

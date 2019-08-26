@@ -115,3 +115,30 @@ package-cleanup --lodkernels
  uuidgen $eth
 ~~~
 
+## Vim操作
+
+~~~shell
+# 列编辑
+# 使用vim打开一个文件
+1. normal模式下，按下Crtl+v，进入视图模式
+2. 按 hjkl 选择需要列编辑的行与列位置
+3. shift+i 或 shift+a (即大写的I或A)，进入编辑模式
+4. 输入要插入的内容（此时看到的光标所在行输入）
+5. 按Esc退出编辑模式，等1~2s即会看到列编辑完成。
+~~~
+
+## 安装expect
+
+~~~shell
+# 安装expect, 就可以写脚本登录
+yum install -y expect
+# demo: 登录腾讯云
+# 可以将 bash -c后的语句换成 ssh，即可实现登录服务器
+set timeout 10
+spawn bash -c "docker login --username=$name ccr.ccs.tencentyun.com"
+expect {
+  "*Password*" {send "$passwd\r"}
+}
+interact
+~~~
+

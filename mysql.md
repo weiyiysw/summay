@@ -30,3 +30,16 @@ show processlist;
 kill $ID
 ~~~
 
+## Mysqldump
+
+~~~shell
+# 导出指定数据库, 包含数据
+> mysqldump -h$IP -P$Port -u$Username -p$Passwd -databases $Database > $database.sql
+
+# 导出指定数据库，仅结构
+> mysqldump --opt -h$IP -P$Port -u$Username -databases $Database > $database.sql
+
+# 导出指定数据库，仅数据
+> mysqldump -t -h$IP -P$Port -u$Username -databases $Database > $database.sql
+~~~
+
