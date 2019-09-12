@@ -403,6 +403,80 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 
 ### 5. Guava
 
+> [Guava](https://github.com/google/guava)GitHub仓库，可查看wiki，获取更多信息。
+
+Guava项目包含了几个Google经常依赖使用的核心Java-Based项目：`collections` 、`caching`、`primitives support`、`concurrency libraries`、`common annotations`、`string processing`、`I/O`等。
+
+#### 基本能力
+
+##### 1. 使用时避免null
+
+粗心的使用`null`会导致很多问题。谷歌调研了内部基本的代码，发现95%的集合都不会假定有null值存在。对开发者来说，遇到null时进行快速失败，而不是默默的接受将会更加有用。
+
+使用Optional这个包装类型，Java8内置了该类型。
+
+##### 2. Preconditions
+
+Guava提供预先检查的能力，强烈建议静态的引入。每个方法都有三个变种：
+
+1. 没有额外的参数。任何异常都会被抛出，并且不带有错误信息
+2. 一个额外的 `Object` 参数。异常都会被抛出，并携带错误信息。
+3. 一个额外的 `String` 参数，任意数量的 `Object` 的参数。多个`Object`参数和`printf`类似，但是在这个String参数里，只接受 `%s`指示。
+   * 注意：`checkNotNull`, `checkArgument`, `checkState`三个方法有大量的基本类型的重载方法。使用基本类型的时候，避免自动装箱和类型转换开销。
+
+~~~java
+// 使用第三个变体的示例，这是静态引入了Preconditions
+checkArgument(i >= 0, "Argument was %s but expected nonnegative", i);
+~~~
+
+| 方法签名（不包含额外的参数）                        | 说明                                                         | 失败时抛出的异常            |
+| --------------------------------------------------- | ------------------------------------------------------------ | --------------------------- |
+| `checkArgument(boolean)`                            | 检查 `boolean`是否是 `true`。验证传入方法的参数。            | `IllegalArgumentException`  |
+| `checkNotNull(T)`                                   | 检查值是不是null。直接返回值，所以你可以直接在一行使用 `checkNotNull(value)` | `NullPointException`        |
+| `checkState(boolean)`                               | 检查对象的一些状态，不依赖方法的参数。例如，一个 `Iterator`可以用它在调用 `remove`之前检查 `next`是否被调用。 | `IllegalStateException`     |
+| `checkElementIndex(int index, int size)`            |                                                              | `IndexOutOfBoundsException` |
+| `checkPositionIndex(int index, int size)`           |                                                              | `IndexOutOfBoundsException` |
+| `checkPositionIndexs(int start, int end, int size)` |                                                              | `IndexOutOfBoundsException` |
+
+
+
+#### 集合
+
+##### 1. 不可变集合
+
+##### 2. 新集合类型
+
+
+
+### 6. Guice
+
+[Guice](https://github.com/google/guice)是Google推出的轻量级DI框架，专注于DI，启动速度比Spring快。Guice包含以下几个要点。
+
+- module: 将接口与接口的实现增加映射
+- @Inject: 注解，引导guice进行注入。
+- Injector: 获取module已配置的任意实例
+
+## Bindings
+
+Injector的工作是组装对象图。你给定类型来请求一个实例，Injector指示怎么去构建、解决依赖、并把所有都包装在一起。为了明确的解决依赖，使用**Bindings**配置Injector。
+
+### 创建Bindings
+
+创建Bindings，扩展`AbstractModule`并且覆盖`configure`方法即可。在方法体里，调用`bind()`方法确定每一个binding。只要你创建完了modules，将他们做为参数传入`Guice.createUInjector()`构建Injector。
+
+Bindings有以下几种方式
+
+1. linked bindings
+2. instance bindings
+3. @Providers methods
+4. provider bindings
+5. contructor bindings
+6. untargetted bindings
+7. built-in bindings
+8. just-in-time binding
+
+### 7. HiveMQ
+
 ## 7. 大数据
 
 ## 8. 消息队列
