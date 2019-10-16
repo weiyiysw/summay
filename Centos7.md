@@ -1,5 +1,112 @@
 # CentOS7命令总结
 
+## 开发环境
+
+~~~shell
+# root权限下，修改sudoers，添加用户权限
+> chmod +w /etc/sudoers
+> vi /etc/sudoers
+
+# 镜像源替换为国内的源
+> mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+
+> wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+
+# 如果没有wget命令，可使用curl
+> curl -O http://mirrors.aliyun.com/repo/Centos-7.repo && mv Centos-7.repo /etc/yum.repos.d/CentOS-Base.repo
+
+> yum clean all && yum makecache
+
+# 设置网络，我开发环境采用了双网卡，1个网卡用于上网即NAT模式，另1个网卡用于虚拟机与主机互通
+# NAT网卡
+> chmod +w /etc/sysconfig/network-scripts/ifcfg-enp0s3
+> vi ifcfg-enp0s3 # 将 ONBOOT 修改为 yes
+
+# host-only网卡，因为是后加的网卡，需要自己创建ifcfg-enp0s8文件
+> cp ifcfg-enp0s3 ifcfg-enp0s8
+IPADDR=$ip
+NETMASK=255.255.255.0
+GATEWAY=192.168.56.1 # 如果你的网卡是其他ip，请修改
+# 查看网卡的UUID
+> nmcli con show
+
+# 修改ifcfg-enp0s8的UUID（因为拷贝的enp0s3文件，其UUID与enp0s3一样）
+
+# 可选操作：网卡重新生成UUID，$eth 指网卡名称
+> uuidgen $eth
+
+# 设置公钥免密登录，请预先生成公私钥
+> sudo vi /etc/ssh/sshd_config
+
+PubkeyAuthentication yes # 启用公钥认证
+
+# 将公钥拷贝至服务器，并建立文件夹.ssh
+> mkdir .ssh && mv your.pub .ssh && cd .ssh
+
+# 如果已存在authorized_keys文件，请将公钥的内容拷贝出来，粘贴到该文件里
+> mv your.pub authorized_keys # 这里仅表示重命名的方式
+
+# 修改文件权限
+> chmod 0700 .ssh && chmod 0600 .ssh/authorized_keys
+
+# 重启sshd服务
+> sudo systemctl restart sshd.service
+
+# 扩展
+> sudo systemctl status sshd.service
+> sudo systemctl start/stop sshd.service
+# 开机自启
+> sudo systemctl enable sshd.service
+
+# 宿主机在.ssh文件里创建config并配置
+host $machinename
+     	user $username
+        hostname $ip
+        port 22
+        identityFile /path/privatekey
+        
+# 安装git
+> sudo yum install -y git
+# 安装zsh, oh-my-zsh
+> sudo yum install -y zsh
+> sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+# 设置通配符匹配
+> vi .zshrc
+setopt nonomatch
+
+# 安装网络工具
+> sudo yum install -y wget net-tools nc vim
+
+# 安装java8 maven，下载jdk maven，解压，这里仅记录设置环境变量
+> vim .zshrc
+export JAVA_HOME=/usr/local/java
+export JRE_HOME=$JAVA_HOME/jre
+export CLASSPATH=.:$JAVA_HOME/lib:$JRE_HOME/lib
+export M2_HOME=/usr/local/maven
+export PATH=$PATH:$JAVA_HOME/bin:$M2_HOME/bin
+> source .zshrc
+> mvn -v
+
+# 安装docker
+> yum remove docker docker-common docker-selinux docker-engine -y
+> yum install -y yum-utils device-mapper-persistent-data lvm2
+> yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+> yum makecache fast
+> yum install docker-ce -y
+> sudo usermod -aG docker $user
+> sudo systemctl enable docker
+> sudo systemctl start docker
+
+# 配置公钥访问github
+# 1. 生成公私钥对； 2. 将公钥添加到GitHub管理起来；3. .ssh/config文件添加以下内容
+host github.com
+        user git
+        hostname github.com
+        identityFile /path/your_private
+~~~
+
+> [CentOS修改镜像源记录](https://blog.csdn.net/spark_csdn/article/details/80791429)
+
 ## 防火墙
 
 * 查看已经开放的端口
@@ -63,13 +170,6 @@ uname -r
 cat /etc/redhat-release
 ~~~
 
-## 安装tools
-
-~~~shell
-# 安装ifconfig
-sudo yum install net-tools
-~~~
-
 ## 升级内核
 
 ~~~shell
@@ -104,15 +204,6 @@ uname -msr
 # step 7, remove old kernel(optional)
 yum install yum-utils
 package-cleanup --lodkernels
-~~~
-
-## 查看网卡UUID
-
-~~~shell
- # 查看网卡UUID
- nmcli con show
- # 网卡重新生成UUID，$eth 指网卡名称
- uuidgen $eth
 ~~~
 
 ## Vim操作
