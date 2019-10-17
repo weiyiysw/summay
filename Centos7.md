@@ -20,10 +20,13 @@
 # 设置网络，我开发环境采用了双网卡，1个网卡用于上网即NAT模式，另1个网卡用于虚拟机与主机互通
 # NAT网卡
 > chmod +w /etc/sysconfig/network-scripts/ifcfg-enp0s3
+> cd /etc/sysconfig/network-scripts
 > vi ifcfg-enp0s3 # 将 ONBOOT 修改为 yes
+> chmod -w ifcfg-enp0s3
 
 # host-only网卡，因为是后加的网卡，需要自己创建ifcfg-enp0s8文件
 > cp ifcfg-enp0s3 ifcfg-enp0s8
+# 将dhcp改为static，并添加ip
 IPADDR=$ip
 NETMASK=255.255.255.0
 GATEWAY=192.168.56.1 # 如果你的网卡是其他ip，请修改
@@ -225,6 +228,9 @@ package-cleanup --lodkernels
 yum install -y expect
 # demo: 登录腾讯云
 # 可以将 bash -c后的语句换成 ssh，即可实现登录服务器
+# 下面是脚本内容
+
+#!/usr/bin/expect -f
 set timeout 10
 spawn bash -c "docker login --username=$name ccr.ccs.tencentyun.com"
 expect {
