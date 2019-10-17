@@ -106,6 +106,21 @@ host github.com
         user git
         hostname github.com
         identityFile /path/your_private
+        
+# 安装mycli
+> sudo yum install -y epel-release
+> sudo yum install -y python-pip
+> sudo pip install --upgrade pip
+> sudo pip install mycli
+# 安装过程中如果遇到
+# It is a distutils installed project and thus we cannot accurately determine which files belong to it which would lead to only a partial uninstall.
+
+# 这是因为旧版本依赖多，不能清晰的删除，此时应该忽略旧版本升级，即如下 
+
+# 解决办法：sudo pip install xxx --ignore-installed xxx
+
+# 然后重新安装mycli
+> sudo pip install mycli
 ~~~
 
 > [CentOS修改镜像源记录](https://blog.csdn.net/spark_csdn/article/details/80791429)
