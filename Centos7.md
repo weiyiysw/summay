@@ -121,6 +121,9 @@ host github.com
 
 # 然后重新安装mycli
 > sudo pip install mycli
+
+# 安装 dig
+> sudo yum install -y bind-utils
 ~~~
 
 > [CentOS修改镜像源记录](https://blog.csdn.net/spark_csdn/article/details/80791429)
