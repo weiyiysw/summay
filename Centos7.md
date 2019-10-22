@@ -263,3 +263,4 @@ expect {
 interact
 ~~~
 
+[终端教程](http://wiki.linuxchina.net/index.php?title=CentOS7.x%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AEShadowsocks%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%BB%88%E7%AB%AF%E7%BF%BB%E5%A2%99)
