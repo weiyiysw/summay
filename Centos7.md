@@ -124,6 +124,12 @@ host github.com
 
 # 安装 dig
 > sudo yum install -y bind-utils
+
+# 安装the fuck
+> sudo yum install -y gcc
+> sudo yum install -y python3-devel python3-pip python3-setuptools
+> sudo pip3 install thefuck
+
 ~~~
 
 > [CentOS修改镜像源记录](https://blog.csdn.net/spark_csdn/article/details/80791429)
