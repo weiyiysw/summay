@@ -264,3 +264,116 @@ interact
 ~~~
 
 [终端教程](http://wiki.linuxchina.net/index.php?title=CentOS7.x%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AEShadowsocks%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%BB%88%E7%AB%AF%E7%BF%BB%E5%A2%99)
+
+## supervisor
+
+### 1. 安装
+
+~~~shell
+# 第一种安装方式
+> pip install supervisor
+
+# 第二种安装方式
+> yum install -y python-setuptools
+> easy_install supervisor
+~~~
+
+### 2. 准备工作
+
+~~~shell
+# 创建 supervisord.conf
+> touch /etc/supervisor/supervisord.conf
+~~~
+
+~~~conf
+; supervisor config file
+
+[unix_http_server]
+file=/var/run/supervisor.sock   ; (the path to the socket file) UNIX socket 文件，supervisorctl 会使用
+chmod=0700                       ; sockef file mode (default 0700) socket 文件的 mode，默认是 0700
+
+[supervisord]
+logfile=/var/log/supervisor/supervisord.log ; (main log file;default $CWD/supervisord.log) 日志文件，默认是 $CWD/supervisord.log
+pidfile=/var/run/supervisord.pid ; (supervisord pidfile;default supervisord.pid) pid 文件
+childlogdir=/var/log/supervisor            ; ('AUTO' child log dir, default $TEMP)
+
+; the below section must remain in the config file for RPC
+; (supervisorctl/web interface) to work, additional interfaces may be
+; added by defining them in separate rpcinterface: sections
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix:///var/run/supervisor.sock ; use a unix:// URL  for a unix socket 通过 UNIX socket 连接 supervisord，路径与 unix_http_server 部分的 file 一致
+
+; 在增添需要管理的进程的配置文件时，推荐写到 `/etc/supervisor/conf.d/` 目录下，所以 `include` 项，就需要像如下配置。
+; 包含其他的配置文件
+[include]
+files = /etc/supervisor/conf.d/*.conf ; 引入 `/etc/supervisor/conf.d/` 下的 `.conf` 文件
+~~~
+
+在`supervisord.conf`下，`;`代表注释。
+
+进入到`/lib/systemd/system`，创建文件 `supervisord.service`，内容如下
+
+~~~
+[Unit]
+Description=Supervisor process control system for UNIX
+Documentation=http://supervisord.org
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/supervisord -c /etc/supervisor/supervisord.conf
+ExecReload=/usr/bin/supervisorctl -c /etc/supervisor/supervisord.conf $OPTIONS reload
+ExecStop=/usr/bin/supervisorctl $OPTIONS shutdown
+KillMode=process
+Restart=on-failure
+RestartSec=50s
+
+[Install]
+WantedBy=multi-user.target
+~~~
+
+注意这里 `[Service]`下的第一行，如果不加，supervisor启动后就会自动退出。
+
+~~~shell
+# 创建目录
+> mkdir -p /etc/supervisor/conf.d
+
+# 在该目录下添加配置文件，即配置你的应用程序，交由supervisor托管
+# 我这里以filebeat.conf为例
+> touch filebeat.conf
+# 在该文件下写入以下内容，具体配置请自行搜索
+[program:filebeat]
+command=/opt/filebeat/filebeat -c /opt/filebeat/filebeat.yml -e
+user=root
+stdout_logfile=/opt/filebeat/logs/test.out
+autostart=true
+autorestart=true
+startsecs=5
+priority=1
+stopasgroup=true
+killasgroup=true
+~~~
+
+### 3. 设置开机启动
+
+~~~shell
+# 开机启动
+> systemctl enable supervisord
+
+# 查看状态
+> systemctl status supervisord
+
+# 启动/停止/重启
+> systemctl start/stop/restart supervisord
+
+# 上面提到的 supervisord.service 服务文件，如果有修改，执行下面指令
+> systemctl daemon-reload
+~~~
+
+启动后，就可以用`supervisorctl`管理应用。
+
+> [supervisord]([http://supervisord.org](http://supervisord.org/))
+
