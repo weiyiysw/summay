@@ -485,5 +485,83 @@ Bindings有以下几种方式
 
 
 
+## 附录1：JVM调试
 
+### jps
+
+~~~shell
+# jps 查看Java进程的pid
+~~~
+
+### jstat
+
+~~~shell
+# jstat 命令: 查看JVM的GC情况
+# -gcutil 百分比、gc 实际占用内存
+# usage: jstat -gcutil pid [间隔时间] [查询次数] 
+# usage: jstat -gcutil pid [间隔时间] [查询次数]
+~~~
+
+`-gcutil`的参数含义
+
+| Column | Description                            |
+| :----- | :------------------------------------- |
+| S0     | 第 0 个 survivor（幸存区）使用的百分比 |
+| S1     | 第 1 个 survivor（幸存区）使用的百分比 |
+| E      | `Eden` 区使用内存的百分比              |
+| O      | 老生代内存使用的百分比                 |
+| P/M    | `PermGen`/`MetaSpace` 的内存使用百分比 |
+| YGC    | 程序启动以来 Young GC 发生的次数       |
+| YGCT   | 程序启动以来 Young GC 共消耗的时间(s)  |
+| FGC    | 程序启动以来 Full GC 发生的次数        |
+| FGCT   | 程序启动以来 Full GC 共消耗的时间(s)   |
+| GCT    | 程序启动以来 GC 的总用时(s)            |
+
+`-gc`的输出列含义
+
+| Column | Description                            |
+| :----- | :------------------------------------- |
+| SOC    | 第 0 个 Survivor 区的总空间 (KB).      |
+| S1C    | 第 1 个 Survivor 区的总空间 (KB).      |
+| S0U    | 第 0 个 Survivor 区已使用的空间 (KB).  |
+| S1U    | 第 1 个 Survivor 区已使用的空间 (KB).  |
+| EC     | Eden 区的总空间 (KB).                  |
+| EU     | Eden 区已使用的空间 (KB).              |
+| OC     | OldGen 的总空间 (KB).                  |
+| OU     | OldGen 已使用的空间 (KB).              |
+| PC/MC  | `PermGen`/`MetaSpace` 的总空间 (KB).   |
+| PU/MU  | `PermGen`/`MetaSpace` 使用的空间 (KB). |
+| YGC    | 程序启动以来 Young GC 发生的次数       |
+| YGCT   | 程序启动以来 Young GC 共消耗的时间(s)  |
+| FGC    | 程序启动以来 Full GC 发生的次数        |
+| FGCT   | 程序启动以来 Full GC 共消耗的时间(s)   |
+| GCT    | 程序启动以来 GC 的总用时(s)            |
+
+### jmap
+
+~~~shell
+# to print java heap summary
+> jmap -heap pid
+~~~
+
+### jstack
+
+~~~shell
+# jstack 打印堆栈信息
+> jstack pid
+
+# 需要结合top命令使用
+~~~
+
+#### top命令介绍
+
+top命令是Linux下常用的性能分析工具，能够实时显示系统中各个进程的资源占用状况，类似于Windows的任务管理器。
+
+top显示系统当前的进程和其他状况,是一个动态显示过程,即可以通过用户按键来不断刷新当前状态.如果在前台执行该命令,它将独占前台,直到用户终止该程序为止. 比较准确的说,top命令提供了实时的对系统处理器的状态监视.它将显示系统中CPU最“敏感”的任务列表.该命令可以按CPU使用.内存使用和执行时间对任务进行排序；而且该命令的很多特性都可以通过交互式命令或者在个人定制文件中进行设定. 
+
+top输出某个特定进程pid并检查该进程内运行的线程状况：
+
+~~~shell
+top -Hp pid
+~~~
 
