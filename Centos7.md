@@ -377,3 +377,8 @@ killasgroup=true
 
 > [supervisord]([http://supervisord.org](http://supervisord.org/))
 
+## 查找大文件
+
+~~~shell
+> find / -type f -size +800M  -print0 | xargs -0 du -h
+~~~
