@@ -38,3 +38,12 @@ Applying: fix mvn dependency conflict
 > git rebase -i [startpoint] [endpoint]
 ~~~
 
+## 获取 commit id
+
+~~~shell
+# 获取完整的commit-id
+> git rev-parse HEAD
+
+# 获取short commit-id
+> git rev-parse --short HEAD
+~~~
