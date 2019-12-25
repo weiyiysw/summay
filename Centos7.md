@@ -382,3 +382,62 @@ killasgroup=true
 ~~~shell
 > find / -type f -size +800M  -print0 | xargs -0 du -h
 ~~~
+
+## iptables
+
+### 规则
+
+规则：网络管理员预定义的条件。
+
+一般定义：如果数据包头符合这样的条件，就这样处理该数据包。
+
+存储：内核空间的信息包过滤表中。
+
+规则包含：
+
+* 源地址
+* 目的地址
+* 传输协议（TCP、UDP）
+* 服务类型（HTTP、FTP）
+* ...等
+
+当数据包与规则匹配时，iptables根据规则定义的方法处理数据包。如：`accept`、`reject`、`drop`等。
+
+### 表
+
+iptables内置以下4个表，用于实现包过滤，网络地址转换和包重构的功能。优先级： `raw -> mangle -> nat-> filter`。
+
+- raw：仅作用进（PREROUTING）和出（OUTPUT ）的链。优先级最高，可对数据包在链接跟踪前处理。RAW处理后，将跳过NAT表和ip_conntrack处理，即不做地址转换和数据包的链接跟踪处理。
+- mangle：用于对指定数据包进行更改。
+- nat：用于网络地址转换NAT，可实现一对一、一对多、多对多等NAT工作。iptables使用该表实现共享上网。
+- filter：用于过滤数据包。根据管理员预定义的一组规则过滤符合条件的数据包。对于防火墙，主要是在filter表中指定规则实现数据包过滤。这是**默认**的表，如果没有指定哪个表，iptables默认使用filter表执行所有命令。只允许对数据包进行 `accept` 、`drop`操作，无法更改数据包。
+
+
+
+![](./images/iptables_4table.png)
+
+### 链
+
+* PREROUTING
+* INPUT
+* FORWARD
+* OUTPUT
+* POSTROUTING
+
+![iptables包流转图](./images/iptables_packet_flow.png)
+
+1. 数据包进入网卡，首先进入到`PREROUTING`链，内核根据数据包的目的IP判断是否需要转发出去
+2. 数据包如果是进入本机的，则会连着图向下移动，到达`INPUT`链。
+   1. 数据包到了INPUT链，任何进程都会收到它。（摘录）
+   2. 本机运行的程序可以发送数据包，发送的数据包经过`OUTPUT`链，到达`POSTROUTING`出去。
+3. 数据包如果是需要转发出去，且内核允许转发，数据包向右移动，经过`FORWARD`链，然后到达`POSTROUTING`链出去。
+   * `cat /proc/sys/net/ipv4/ip_forward`输出为1，则代表内核允许转发。
+   * 可在`/etc/sysctl.conf`里配置 `net.ipv4.ip_forward = 1`，然后执行`sysctl -p`
+
+链，是数据包的传输路径。每条链是众多规则的检查清单，每条链中可以有一条或数条规则。
+
+1. 当数据包到达一条链时，iptables会从链中的第一条规则开始检查，看数据包是否满足规则所定义的条件。
+
+2. 如果满足，系统就会根据该条规则所定义的方法处理该数据包。
+3. 否则，将继续检查吓一跳规则
+4. 如果不符合链中的任一条规则，iptables就会根据该链预先定义的默认策略处理该数据包。
