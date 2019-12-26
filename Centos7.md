@@ -385,6 +385,8 @@ killasgroup=true
 
 ## iptables
 
+![](./images/iptables-Diagram.png)
+
 ### 规则
 
 规则：网络管理员预定义的条件。
