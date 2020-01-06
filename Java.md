@@ -510,7 +510,8 @@ Bindings有以下几种方式
 | S1     | 第 1 个 survivor（幸存区）使用的百分比 |
 | E      | `Eden` 区使用内存的百分比              |
 | O      | 老生代内存使用的百分比                 |
-| P/M    | `PermGen`/`MetaSpace` 的内存使用百分比 |
+| M      | 方法区的内存使用百分比                 |
+| CCS    | 压缩类使用空间百分比                   |
 | YGC    | 程序启动以来 Young GC 发生的次数       |
 | YGCT   | 程序启动以来 Young GC 共消耗的时间(s)  |
 | FGC    | 程序启动以来 Full GC 发生的次数        |
@@ -529,8 +530,10 @@ Bindings有以下几种方式
 | EU     | Eden 区已使用的空间 (KB).              |
 | OC     | OldGen 的总空间 (KB).                  |
 | OU     | OldGen 已使用的空间 (KB).              |
-| PC/MC  | `PermGen`/`MetaSpace` 的总空间 (KB).   |
-| PU/MU  | `PermGen`/`MetaSpace` 使用的空间 (KB). |
+| MC     | 方法区总空间 (KB).                     |
+| MU     | 方法区使用的空间 (KB).                  |
+| CCSC   | 压缩类总空间大小                        |
+| CCSU   | 压缩类使用空间大小                    |
 | YGC    | 程序启动以来 Young GC 发生的次数       |
 | YGCT   | 程序启动以来 Young GC 共消耗的时间(s)  |
 | FGC    | 程序启动以来 Full GC 发生的次数        |
