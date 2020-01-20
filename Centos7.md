@@ -371,6 +371,9 @@ killasgroup=true
 
 # 上面提到的 supervisord.service 服务文件，如果有修改，执行下面指令
 > systemctl daemon-reload
+
+# 查看开机启动项
+> systemctl list-unit-files | grep enable
 ~~~
 
 启动后，就可以用`supervisorctl`管理应用。
