@@ -568,3 +568,76 @@ top输出某个特定进程pid并检查该进程内运行的线程状况：
 top -Hp pid
 ~~~
 
+## 10. OkHtp
+
+### 概览
+
+OkHttp是一个HTTP客户端，默认情况下支持：
+
+* HTTP/2支持允许同一个主机的所有请求共享一个socket。
+* 连接池减少请求时延（如果是HTTP/2，连接池不作用）。
+* GZIP传输，减少下载大小。
+* 缓存响应，避免网络完整的重复请求。
+
+OKHTTP还有以下优点：
+
+* 网络遇到问题时，会坚持，遇到普遍的连接问题通常会静静的恢复。
+* 支持TLS。
+* 使用简单，接口通过构造器实现流式的API。
+* 支持同步调用。
+* 支持异步回调。
+
+### Call
+
+HTTP客户端的工作原理很简单：接受请求、执行产生响应。
+
+#### Requests
+
+* URL
+* method（`GET` 或 `POST`）
+* a list of headers
+* 可能包含body
+
+#### Rewriting Requests
+
+当你使用OkHttp发出HTTP请求时，你是在一个高纬度的角度描述这个请求：“用这些headers去执行该请求”。OkHttp为了请求的正确且有效，会在执行前重写该请求。
+
+OkHttp可能会添加一些原始请求缺失的headers，包括`Content-Length`、`Transfer-Encoding`、`User-Agent`、`Host`、`Connection`及`Content-Type`。它会添加`Accepnt-Encoding`头用于传输压缩响应请求，除非该头已经存在则不会添加。如果你获得了cookies，OkHttp将会添加`Cookie`头。
+
+#### Follow-up Requests
+
+如果请求的URL被移走了，web服务器会返回`302`表示改文档有一个新的URL。OkHttp会跟随这个重定向请求，获取到最终的响应。
+
+如果响应反馈的问题是授权（authorization）问题，OkHttp会通过[Authenticator](https://square.github.io/okhttp/4.x/okhttp/okhttp3/-authenticator/)（如果配置了的话）获得授权。如果authenticator提供了凭证，请求会携带凭证并重试。
+
+#### Retrying Requests
+
+有时候连接会失败：有可能是连接池超时断开，也有可能是后端web服务本身就不可达。OkHttp会用另一个可用的不同的路由重试请求。
+
+#### Responses
+
+* code
+* headers
+* 可选的body
+
+#### 重写响应
+
+如果使用了压缩传输，OkHttp将会丢弃相应的响应头`Content-Encoding`和`Content-Length`，因为这两个header不适用与解压缩的响应body。
+
+#### Calls
+
+由于重写、重定向、追踪和重试，你一个简单的请求可能会包含很多的请求和响应。OkHttp使用`Call`建模表示通过许多中间请求和响应来满足您的请求的任务。
+
+Calls有两种执行方式：
+
+* Synchronous：线程阻塞直到响应可读
+* Asynchronous：你的请求会进入到队列中，并且在另一个线程中获得[回调](http://square.github.io/okhttp/4.x/okhttp/okhttp3/-callback/)，当请求可读时。
+
+Call可以在任意线程里被取消。
+
+#### Dispatch
+
+对于同步调用，您需要带上自己的线程并负责管理您发出的同时请求数。同时连接过多会浪费资源。太少会损害延迟。
+
+对于异步调用，Dispatcher实施最大并发请求的策略。您可以设置每个Web服务器的最大值（默认为5）和整体（默认为64）。
+

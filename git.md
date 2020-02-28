@@ -47,3 +47,29 @@ Applying: fix mvn dependency conflict
 # 获取short commit-id
 > git rev-parse --short HEAD
 ~~~
+
+## 本地文件变更不提交
+
+通常有一些文件或配置往往只需要在本地变更即可，不需要提交到Git仓库。
+
+1. `.gitignore`文件方式
+2. 如果我们的文件本身就被git管理了，那么就不适合用第一种方式了。
+
+~~~shell
+# 本地设置该文件，变更不提交  （assume：假设）
+> git update-index --assume-unchange filename
+
+# 取消
+> git update-index --no-assume-unchange filename
+# 或者
+> git update-index --really-refresh
+~~~
+
+## Git设置默认分支
+
+~~~shell
+# 设置默认分支
+> git branch --set-upstream-to=origin/master master
+# 设置完成后，直接使用 git pull / git push命令即可拉取/推送默认分支
+~~~
+
