@@ -456,3 +456,18 @@ jq是基于命令行的`JSON`字符串处理工具。功能：
 * 从stdin读取，与管道组合可以方便的处理`JSON`。
 
 格式化JSON、压缩JSON等功能。
+
+## Linux快速清空文件内容
+
+~~~shell
+# 以下是几种常用的方法
+# : 为占位符
+$ : > filename
+$ > filename
+$ echo "" > filename
+$ echo /dev/null > filename
+$ echo > filename
+$ cat /dev/null > filename
+$ cp /dev/null filename
+~~~
+
