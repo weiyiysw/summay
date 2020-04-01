@@ -434,19 +434,253 @@ checkArgument(i >= 0, "Argument was %s but expected nonnegative", i);
 | `checkArgument(boolean)`                            | 检查 `boolean`是否是 `true`。验证传入方法的参数。            | `IllegalArgumentException`  |
 | `checkNotNull(T)`                                   | 检查值是不是null。直接返回值，所以你可以直接在一行使用 `checkNotNull(value)` | `NullPointException`        |
 | `checkState(boolean)`                               | 检查对象的一些状态，不依赖方法的参数。例如，一个 `Iterator`可以用它在调用 `remove`之前检查 `next`是否被调用。 | `IllegalStateException`     |
-| `checkElementIndex(int index, int size)`            |                                                              | `IndexOutOfBoundsException` |
-| `checkPositionIndex(int index, int size)`           |                                                              | `IndexOutOfBoundsException` |
-| `checkPositionIndexs(int start, int end, int size)` |                                                              | `IndexOutOfBoundsException` |
+| `checkElementIndex(int index, int size)`            | 用于List、String、数组有具体大小的，检查元素`index`是否有效。元素index范围是[0，size)。不需要传入List、string、数组，只需要传入大小，并返回`index`。 | `IndexOutOfBoundsException` |
+| `checkPositionIndex(int index, int size)`           | 用于List、String、数组有具体大小的，检查位置`index`是否有效。元素index范围是[0，size)。不需要传入List、string、数组，只需要传入大小，并返回`index`。 | `IndexOutOfBoundsException` |
+| `checkPositionIndexs(int start, int end, int size)` | 检查 `[start, end)` 是否是List、string、数组里的有效的子范围。附带自己的错误消息。 | `IndexOutOfBoundsException` |
 
+##### 3. Ordering
 
+##### 4. Object methods
+
+###### equals
+
+使用 `Objects.equals` 在对null值敏感时执行 `equals` 方法，避免空指针异常。
+
+~~~java
+Objects.equal("a", "a"); // returns true
+Objects.equal(null, "a"); // returns false
+Objects.equal("a", null); // returns false
+Objects.equal(null, null); // returns true
+~~~
+
+###### hashCode
+
+`Objects.hash(Object...)` 快速创建敏感、有序的hash序列。
+
+###### toString
+
+`MoreObjects.toStringHelper()` 方便的构造toString，用于调试。
+
+~~~java
+// Returns "ClassName{x=1}"
+   MoreObjects.toStringHelper(this)
+       .add("x", 1)
+       .toString();
+
+   // Returns "MyObject{x=1}"
+   MoreObjects.toStringHelper("MyObject")
+       .add("x", 1)
+       .toString();
+~~~
+
+###### compare/compareTo
+
+直接实现 `Compartor` 或 `Comparable` 接口，会很痛苦。例如：
+
+~~~Java
+class Person implements Comparable<Person> {
+  private String lastName;
+  private String firstName;
+  private int zipCode;
+
+  public int compareTo(Person other) {
+    int cmp = lastName.compareTo(other.lastName);
+    if (cmp != 0) {
+      return cmp;
+    }
+    cmp = firstName.compareTo(other.firstName);
+    if (cmp != 0) {
+      return cmp;
+    }
+    return Integer.compare(zipCode, other.zipCode);
+  }
+}
+~~~
+
+这段代码很容易搞砸，很难扫描错误，而且令人不快的冗长。我们可以优化它。
+
+使用 `ComparisonChain`
+
+~~~java
+public int compareTo(Foo that) {
+     return ComparisonChain.start()
+         .compare(this.aString, that.aString)
+         .compare(this.anInt, that.anInt)
+         .compare(this.anEnum, that.anEnum, Ordering.natural().nullsLast())
+         .result();
+   }
+~~~
+
+这种流式的习语更具可读性，更不容易发生意外错别字，并且足够聪明，不会做更多的工作。
+
+###### Throwables
 
 #### 集合
 
 ##### 1. 不可变集合
 
+不可变的对象有很多优点：
+
+* 安全的被不信任的库使用
+* 线程安全
+* 不需要支持变异，并且可以通过该假设节省时间和空间
+* 可做为常量使用
+
 ##### 2. 新集合类型
 
+###### Multiset
 
+传统的Java方式统计文档中一个单词出现的次数的示例代码如下：
+
+~~~java
+Map<String, Integer> counts = new HashMap<String, Integer>();
+for (String word : words) {
+  Integer count = counts.get(word);
+  if (count == null) {
+    counts.put(word, 1);
+  } else {
+    counts.put(word, count + 1);
+  }
+}
+~~~
+
+这很尴尬，容易出错，并且不支持收集各种有用的统计数据，例如单词总数。我们可以做得更好
+
+Guava提供的新集合类型 `Multiset` 支持添加多种元素。
+
+`Multiset` 可理解为综合了 `ArrayList<E>` 和 `Map<E, Integer>` 二者特性。
+
+* `ArrayList<E>` 但没有排序
+* `MAP<E, Integer>` 记录元素的数量
+
+Guava的 `Multiset` API也包含了这两种方式的思考。
+
+* 当把它作为一个正常的 `Collection` 时，`Multiset` 就像一个无序的 `ArrayList`
+  * `add(E)` ：添加元素
+  * `iterator()` ：遍历每一个元素
+  * `size()` ：所有元素的个数
+* 传统的查询操作，就像前面的统计字符例子，它更像一个 `Map<E, Integer>`
+  * `count(Object)` ：返回这个对象关联的元素总共有多少个，对 `HashMultiset` 此方法是O(1)，`TreeMultiset` 则是O(log n)
+  * `entrySet()` ：返回 `Set<Multiset.Entry<E>>` 和map的entrySet近似
+  * `elementSet()`  ： 返回一个无重复元素的 `Set<E>` 集合，就像map的keySet
+  * `Multiset` 的内存消耗与无重复元素的数量成线性比例
+
+###### Multimap
+
+在Map里一个key对应一个value，而Multimap即，一个key，可以对应多个value。使用Multimap来替换`Map<K, List<V>>`或 `Map<K, Set<V>>` 会更加优雅。
+
+~~~Java
+// Multimap
+String key = "a-key";
+Multimap<String, String> map = ArrayListMultimap.create();
+ 
+map.put(key, "firstValue");
+map.put(key, "secondValue");
+ 
+assertEquals(2, map.size());
+// will output {a-key=[firstValue, secondValue]}
+
+// map
+String key = "a-key";
+Map<String, String> map = new LinkedHashMap<>();
+ 
+map.put(key, "firstValue");
+map.put(key, "secondValue");
+ 
+assertEquals(1, map.size());
+~~~
+
+###### BiMap
+
+将值映射回键的传统方法是维护两个单独的映射并使它们保持同步，但这很容易出错，并且当映射中已存在值时会非常混乱。例如：
+
+~~~Java
+Map<String, Integer> nameToId = Maps.newHashMap();
+Map<Integer, String> idToName = Maps.newHashMap();
+
+nameToId.put("Bob", 42);
+idToName.put(42, "Bob");
+// what happens if "Bob" or 42 are already present?
+// weird bugs can arise if we forget to keep these in sync...
+~~~
+
+`BiMap<K, V>` 是一个 `Map<K, V>`，有2个特点：
+
+* 支持K、V可以反转查看，即通过 `inverse()` 方法将 `BiMap<K, V>` 反转为 `BiMap<V, K>` 查看
+* 保证每个值都是唯一的，即 `values()` 是一个 `Set`
+
+如果你尝试使用 `BiMap.put(key, value)` 添加一个已经存在的值，那么将会抛出 `IllegalArgumentException` 。如果你想要替换这个Key对应的值，那么使用 `BiMap.forcePut<key, value>` 。
+
+~~~Java
+BiMap<String, Integer> userId = HashBiMap.create();
+...
+
+String userForId = userId.inverse().get(id);
+~~~
+
+###### Table
+
+通过行列去定位一个值。即，两个Key值，没啥说的。
+
+~~~Java
+Table<Vertex, Vertex, Double> weightedGraph = HashBasedTable.create();
+weightedGraph.put(v1, v2, 4);
+weightedGraph.put(v1, v3, 20);
+weightedGraph.put(v2, v3, 5);
+
+weightedGraph.row(v1); // returns a Map mapping v2 to 4, v3 to 20
+weightedGraph.column(v3); // returns a Map mapping v1 to 20, v2 to 5
+~~~
+
+###### ClassToInstanceMap
+
+Key为类，值为实例的map。
+
+~~~Java
+ClassToInstanceMap<Number> numberDefaults = MutableClassToInstanceMap.create();
+numberDefaults.putInstance(Integer.class, Integer.valueOf(0));
+~~~
+
+###### RangeSet
+
+
+
+###### RangeMap
+
+#### Cache
+
+#### 并发
+
+#### String工具类
+
+##### Joiner
+
+将一系列字符串连接起来。
+
+##### Splitter
+
+本质是增强string的splite方法
+
+##### CharMatcher
+
+##### Charset
+
+~~~java
+// don't do this
+try {
+  bytes = string.getBytes("UTF-8");
+} catch (UnsupportedEncodingException e) {
+  // how can this possibly happen?
+  throw new AssertionError(e);
+}
+
+// instead
+bytes = string.getBytes(Charsets.UTF_8);
+~~~
+
+Charsets提供对六种标准Charset实现的持续引用，保证所有Java平台实现都支持这些实现。使用它们而不是按名称引用字符集。
+
+##### CaseFormat
 
 ### 6. Guice
 
