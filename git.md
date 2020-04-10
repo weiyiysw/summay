@@ -174,6 +174,17 @@ $ git checkout <branchName>
 $ git branch -d <branchName>
 ~~~
 
+### 合并
+
+~~~shell
+# 合并分支时，需要切换到当前分支，在执行合并命令，将其他分支代码合并过来。
+$ git merge branchName
+
+# 分支上的commit msg如果不需要，就使用以下2条命令，将分支上的代码合并过来，并重新创建提交
+$ git merge --squash branchName
+$ git commit -m "msg"
+~~~
+
 
 
 
