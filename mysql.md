@@ -43,3 +43,20 @@ kill $ID
 > mysqldump -t -h$IP -P$Port -u$Username -databases $Database > $database.sql
 ~~~
 
+按客户端 IP 分组，看哪个客户端的链接数最多
+
+~~~shell
+select client_ip,count(client_ip) as client_num from (select substring_index(host,':' ,1) as client_ip from processlist ) as connect_info group by client_ip order by client_num desc;
+~~~
+
+查看正在执行的线程，并按 Time 倒排序，查询执行时间特别长的线程
+
+~~~shell
+select * from information_schema.processlist where Command != 'Sleep' order by Time desc;
+~~~
+
+找出所有执行时间超过 5 分钟的线程，拼凑出 kill 语句
+
+~~~shell
+select concat('kill ', id, ';') from information_schema.processlist where Command != 'Sleep' and Time > 300 order by Time desc;
+~~~
