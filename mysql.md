@@ -60,3 +60,9 @@ select * from information_schema.processlist where Command != 'Sleep' order by T
 ~~~shell
 select concat('kill ', id, ';') from information_schema.processlist where Command != 'Sleep' and Time > 300 order by Time desc;
 ~~~
+
+查看MySQL最大的连接数
+
+~~~shell
+show variables like '%max_connections%';
+~~~
