@@ -64,5 +64,9 @@ select concat('kill ', id, ';') from information_schema.processlist where Comman
 查看MySQL最大的连接数
 
 ~~~shell
+# 查看最大连接数
 show variables like '%max_connections%';
+
+# 查看时区
+show variables like '%time_zone%';
 ~~~
