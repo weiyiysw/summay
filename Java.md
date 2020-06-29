@@ -383,6 +383,8 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 
 #### Spring事物分析
 
+
+
 #### Spring拦截器原理
 
 ##### GET方法
