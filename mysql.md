@@ -33,14 +33,23 @@ kill $ID
 ## Mysqldump
 
 ~~~shell
+# 安装，仅安装mysqldump
+> yum -y install holland-mysqldump.noarch
+
 # 导出指定数据库, 包含数据
-> mysqldump -h$IP -P$Port -u$Username -p$Passwd -databases $Database > $database.sql
+> mysqldump -h$IP -P$Port -u$Username -p$Passwd --databases $Database > $database.sql
 
 # 导出指定数据库，仅结构
-> mysqldump --opt -h$IP -P$Port -u$Username -databases $Database > $database.sql
+> mysqldump --opt -h$IP -P$Port -u$Username --databases $Database > $database.sql
 
 # 导出指定数据库，仅数据
-> mysqldump -t -h$IP -P$Port -u$Username -databases $Database > $database.sql
+> mysqldump -t -h$IP -P$Port -u$Username --databases $Database > $database.sql
+
+# 导入数据
+> source xxx.sql
+
+# or
+> mysql -u $username -P $Port -h $IP -p < xxx.sql
 ~~~
 
 按客户端 IP 分组，看哪个客户端的链接数最多
@@ -70,3 +79,26 @@ show variables like '%max_connections%';
 # 查看时区
 show variables like '%time_zone%';
 ~~~
+
+## 创建用户
+
+~~~shell
+# 创建用户
+# username: 请替换为为用户名
+# host: 指定该用户在哪个主机上可以登陆，如果是本地用户可用localhost，如果想让该用户可以从任意远程主机登陆，可以使用通配符 %
+# password: 用户的密码
+CREATE USER 'username'@'host' IDENTIFIED BY 'password';
+~~~
+
+## 授权
+
+~~~shell
+# 授权
+# all 所有的权限，可单独设置 select update 等权限
+# databasename 数据库名
+# databasename.* 代表数据库下所有的表
+grant all privileges on databasename.* to username@'%';
+
+flush privileges;
+~~~
+
