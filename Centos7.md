@@ -471,3 +471,19 @@ $ cat /dev/null > filename
 $ cp /dev/null filename
 ~~~
 
+## 安装Redis6
+
+编译时可能会遇到很多报错，gcc的版本与Redis版本不一致，需要升级gcc
+
+~~~shell
+# 查看gcc版本
+$ gcc -v
+
+# 升级gcc
+$ sudo yum -y install centos-release-scl
+
+$ sudo yum -y install devtoolset-9-gcc devtoolset-9-gcc-c++ devtoolset-9-binutils
+
+$ scl enable devtoolset-9 bash/zsh
+~~~
+

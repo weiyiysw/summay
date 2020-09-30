@@ -76,6 +76,14 @@ select concat('kill ', id, ';') from information_schema.processlist where Comman
 # 查看最大连接数
 show variables like '%max_connections%';
 
+# 增加
+set global max_connections = 3000;
+
+# 修改 my.cnf 文件
+> vi /etc/my.cnf
+max_connections = 3000
+
+
 # 查看时区
 show variables like '%time_zone%';
 ~~~

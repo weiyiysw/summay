@@ -295,6 +295,25 @@ Method –> public Object invoke(Object obj,Object… args):
 
 动态代理本质是利用Java反射的能力，获取目标对象的类说明，通过类说明动态生成代理对象，由代理对象执行方法。
 
+Java动态代理机制里，`proxy`类和`InvocationHandler`接口是实现动态代理的核心。
+
+以下这段英文摘要是`InvocationHandler`的接口声明。代理接口实例需要实现`InvocationHandler`接口。
+
+~~~java
+/**
+ * InvocationHandler is the interface implemented by
+ * the invocation handler of a proxy instance.
+ *
+ * Each proxy instance has an associated invocation handler.
+ * When a method is invoked on a proxy instance, the method
+ * invocation is encoded and dispatch to the invoke method
+ * of its invocation hander.
+ *
+ */
+~~~
+
+每个代理实例都关联了一个`InvocationHandler`。当代理对象执行调用方法时，这个方法调用会重编码和分发到实现`InvocationHandler`的`invoke`方法。
+
 #### 3. cglib代理
 
 通过第三方代码类库，运行时在内存中动态生成一个**子类**对象，从而实现目标对象功能的扩展。
@@ -400,6 +419,14 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 ### 2. Netty
 
 ### 3. Disruptor
+
+Handler接口分为2类：
+
+* EventHandler：可理解为单线程模式，单个work处理。
+
+* WorkHandler：可理解为线程池模式，多个work处理。
+
+
 
 ### 4. Vert.x
 
