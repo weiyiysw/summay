@@ -110,3 +110,10 @@ grant all privileges on databasename.* to username@'%';
 flush privileges;
 ~~~
 
+## mycli
+
+~~~shell
+# mycli 导出，xxx替换为表名
+> \t csv; \o ~/xxx.csv; select * from xxx;
+~~~
+
