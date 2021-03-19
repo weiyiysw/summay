@@ -338,7 +338,7 @@ Spring AOP使用此代理实现。此方法，会继承目标对象，所以需�
 spring单例对象初始化的过程，大致可分为三步：
 
 1. createBeanInstance：实例化bean，调用构造方法
-2. populateBean：填充熟悉，主要对bean的熟悉进行填充
+2. populateBean：填充属性，主要对bean的属性进行填充
 3. initializeBean：调用spring xml里配置的init方法，或者注解@PostConstruct声明的方法。
 
 从单例bean的初始化的过程，可知，循环依赖是发生在第一步和第二步。
@@ -415,6 +415,228 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 #### Spring接口支持返回多格式
 
 #### Spring里的设计模式
+
+#### Spring注解
+
+##### 1. @RefreshScope
+
+在SpringCloud的文档里，关于注解@RefreshScope有这样的描述：
+
+~~~html
+When there is a configuration change, a Spring @Bean that is marked as @RefreshScope gets special treatment. This feature addresses the problem of stateful beans that only get their configuration injected when they are initialized. For instance, if a DataSource has open connections when the database URL is changed via the Environment, you probably want the holders of those connections to be able to complete what they are doing. Then, the next time something borrows a connection from the pool, it gets one with the new URL.
+
+Sometimes, it might even be mandatory to apply the @RefreshScope annotation on some beans which can be only initialized once. If a bean is "immutable", you will have to either annotate the bean with @RefreshScope or specify the classname under the property key spring.cloud.refresh.extra-refreshable.
+
+Important
+If you create a DataSource bean yourself and the implementation is a HikariDataSource, return the most specific type, in this case HikariDataSource. Otherwise, you will need to set spring.cloud.refresh.extra-refreshable=javax.sql.DataSource.
+~~~
+
+以下是我翻译的译文：
+
+----
+
+当配置文件发生变化时，一个被`@RefreshScope`注解标记的Spring Bean将会被特殊处理。这个特性旨在解决有状态bean的问题，这些bean仅在初始化的时候才被注入配置。举例来说：如果一个`DataSource`持有几个连接，当数据库的URL通过`environment`发生变更时，你可能想`DataSource`持有的这些连接能够完成它们正在做的事情。然后，下一次从连接池中获取连接时，连接指向了新的URL。
+
+有时，可能需要强制性的将`@RefreshScope`注解应用到某些仅需要初始化一次的bean上。如果这个bean是“不可变”的，你要么用注解`@RefreshScope`标记它，或者通过配置属性`spring.cloud.refresh.extra-refreshable`指定特定的类名。
+
+> 重要：如果你用`HikariDataSource`实现创建`DataSource`bean，你需要返回确定的类型，在这个情况下，需要返回`HikariDataSource`。不然的话，你需要设置`spring.cloud.refresh.extra-refreshable=javax.sql.DataSource`。
+
+----
+
+不管是看原文还是看翻译后的译文，其实`Sometimes`后的这段话都有点难以理解。因为在文档中，这段话脱离了实际案例，没有实际的案例辅助读者理解。仅看这一段描述，是很难脑补出这段话适用的实际场景。
+
+接下来，我们给出一个案例用来理解这段话。
+
+当我们在项目中，需要使用自定义数据源（多数据源同理）时，并且我们需要动态的刷新某些数据，如：blocklist。此时，就需要强制性的在数据源的Bean上添加`@RefreshScope`注解，或者配置`spring.cloud.refresh.extra-refreshable=javax.sql.DataSource`。
+
+> 这里仅会给出代码片段，并不会涉及全部的代码示例。
+
+~~~java
+@Bean("customDatasource")
+@RefreshScope
+@ConfigurationProperties("spring.datasource.custom")
+public DataSource customDatasource() {
+    return DataSourceBuilder.create().build();
+}
+
+// 这是不同的代码片段 
+
+@Configuration
+@RefreshScope
+public class BlockListConfig {
+    @Value(${blocklist})
+	private String blocklist;
+}
+
+~~~
+
+对应的配置文件
+
+~~~yaml
+spring:
+  datasource:
+    custom:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      jdbc-url: jdbc:mysql://xxxx:xxxx/db
+      username: xxxx
+      password: xxxx
+blocklist: xxxx
+~~~
+
+一般来说，这个`DataSource`是“不可变的”。但是`blocklist`这个属性bean，需要能够动态的变更。
+
+这种情况下就符合了`Sometimes`所说的场景了。那么，为什么呢？
+
+当我们变更了配置文件，然后触发一个`RefreshEvent`事件。如果使用NACOS，那么这个事件会被自动触发。如果没有，可以配置`management.endpoints`，通过HTTP调用，手动触发refresh。
+
+> 以下源码版本：spring-cloud-context-2.1.4.REEASE，
+
+`RefreshEventListener`监听到`RefreshEvent`事件，进行refresh。`RefreshEventListener`部分源码如图所示：
+
+~~~java
+private ContextRefresher refresh;
+
+// 在应用ready时，设置为true
+private AtomicBoolean ready = new AtomicBoolean(false);
+
+// listner执行
+@Override
+public void onApplicationEvent(ApplicationEvent event) {
+	if (event instanceof ApplicationReadyEvent) {
+		handle((ApplicationReadyEvent) event);
+	}
+	else if (event instanceof RefreshEvent) {
+		handle((RefreshEvent) event);
+	}
+}
+
+public void handle(ApplicationReadyEvent event) {
+	this.ready.compareAndSet(false, true);
+}
+
+public void handle(RefreshEvent event) {
+	if (this.ready.get()) { // don't handle events before app is ready
+		log.debug("Event received " + event.getEventDesc());
+		Set<String> keys = this.refresh.refresh();
+		log.info("Refresh keys changed: " + keys);
+	}
+}
+~~~
+
+从源码可知，调用的是`ContextRefresher`里的`refresh`方法。`ContextRefresher`部分源码如下：
+
+~~~java
+public synchronized Set<String> refresh() {
+	Set<String> keys = refreshEnvironment();
+	this.scope.refreshAll();
+	return keys;
+}
+~~~
+
+在`refreshEnvironment`方法源码如下：
+
+~~~java
+public synchronized Set<String> refreshEnvironment() {
+    // 从context中获取旧环境配置
+	Map<String, Object> before = extract(
+			this.context.getEnvironment().getPropertySources());
+    // 添加新的配置文件到环境中
+	addConfigFilesToEnvironment();
+    // 对比，找到变更的key
+	Set<String> keys = changes(before,
+			extract(this.context.getEnvironment().getPropertySources())).keySet();
+	this.context.publishEvent(new EnvironmentChangeEvent(this.context, keys));
+	return keys;
+}
+~~~
+
+可以看到，`addConfigFilesToEnvironment`读取新配置，接下来看下它的源码：
+
+> 其源码很长，这里省去了一些不太重要的地方，感兴趣的可以自己去看。
+
+~~~java
+ConfigurableApplicationContext addConfigFilesToEnvironment() {
+	ConfigurableApplicationContext capture = null;
+	try {
+        // 复制旧context的环境
+		StandardEnvironment environment = copyEnvironment(
+				this.context.getEnvironment());
+        // 新建Spring应用的构建器
+		SpringApplicationBuilder builder = new SpringApplicationBuilder(Empty.class)
+				.bannerMode(Mode.OFF).web(WebApplicationType.NONE)
+				.environment(environment);
+		// Just the listeners that affect the environment (e.g. excluding logging
+		// listener because it has side effects)
+		builder.application()
+				.setListeners(Arrays.asList(new BootstrapApplicationListener(),
+						new ConfigFileApplicationListener()));
+        // 启动运行
+		capture = builder.run();
+		...
+	}
+	finally {
+		...
+	}
+	return capture;
+}
+~~~
+
+运行的时候，本质是进入到`SpringApplication.java`里的`run`方法，也是Spring启动时运行的方法：
+
+> 源码版本：spring-boot:2.1.11.RELEASE
+
+~~~java
+/**
+	 * Run the Spring application, creating and refreshing a new
+	 * {@link ApplicationContext}.
+	 * @param args the application arguments (usually passed from a Java main method)
+	 * @return a running {@link ApplicationContext}
+	 */
+	public ConfigurableApplicationContext run(String... args) {
+		StopWatch stopWatch = new StopWatch();
+		stopWatch.start();
+		ConfigurableApplicationContext context = null;
+		Collection<SpringBootExceptionReporter> exceptionReporters = new ArrayList<>();
+		configureHeadlessProperty();
+		SpringApplicationRunListeners listeners = getRunListeners(args);
+		listeners.starting();
+		try {
+			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+			ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
+			configureIgnoreBeanInfo(environment);
+			Banner printedBanner = printBanner(environment);
+			context = createApplicationContext();
+			exceptionReporters = getSpringFactoriesInstances(SpringBootExceptionReporter.class,
+					new Class[] { ConfigurableApplicationContext.class }, context);
+			prepareContext(context, environment, listeners, applicationArguments, printedBanner);
+			refreshContext(context);
+			afterRefresh(context, applicationArguments);
+			stopWatch.stop();
+			if (this.logStartupInfo) {
+				new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), stopWatch);
+			}
+			listeners.started(context);
+			callRunners(context, applicationArguments);
+		}
+		catch (Throwable ex) {
+			handleRunFailure(context, ex, exceptionReporters, listeners);
+			throw new IllegalStateException(ex);
+		}
+
+		try {
+			listeners.running(context);
+		}
+		catch (Throwable ex) {
+			handleRunFailure(context, ex, exceptionReporters, null);
+			throw new IllegalStateException(ex);
+		}
+		return context;
+	}
+~~~
+
+
+
+
 
 ### 2. Netty
 
