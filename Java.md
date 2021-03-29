@@ -137,11 +137,79 @@ volatile还有另一个作用是禁止指令重排序。
 
 ### 双亲委派模型
 
+Java代码执行需要编译成class文件，将class文件加载到JVM中执行。类的声明周期如下：
 
+1. 加载（Loading）
+2. 连接（Linking）
+   1. 验证（Verification）
+   2. 准备（Preparation）
+   3. 解析（Resolution）
+3. 初始化（Initalization）
+4. 使用（Using）
+5. 卸载（Unloading）
+
+加载：就是把二进制形式的Java类型读入JVM。
+
+> 类加载并不需要等到某个类“首次主动使用”时加载。JVM规范允许类加载器在预料到某个类将要被使用时预先加载它。
+
+类加载器：
+
+* 根类加载器：加载虚拟机核心类库，如java.lang.*等。加载JDK`lib/`目录下的类库。
+* 扩展类加载器：加载`jre\lib\ext`子目录的类库。
+* 应用加载器：从环境变量 classpath 或者系统属性 java.class.path 所指定的目录中加载类，是用户自定义的类加载器的默认父加载器。
+* 用户自定义加载器：实现抽象类`java.lang.ClassLoader`。
+
+双亲委派模型：从JDK1.2版本开始采用，更好的保证Java平台的安全。
+
+除顶层的启动类加载器外，其余类加载器都应有自己的父类加载器。这里类加载器之间的父子关系采用组合（Composition）而非继承（Inheritance）来实现。类加载器的这种层次关系，称为类加载器的双亲委派模型（Parents Delegation Model）。
+
+这并不是一个强制性约束，而是Java设计者推荐给开发者的一种类加载器实现方式。
+
+工作过程：如果一个类加载器收到了类加载的请求，首先不会自己尝试去加载这个类，而是把请求委派给父类加载器去完成。每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父加载器反馈无法完成这个加载请求时，子类才会尝试自己去加载。
+
+自底向上检测类是否已经加载，自顶向下尝试加载类。
+
+##### 优点
+
+* 确保Java核心类库的安全。
+* 确保Java核心类库提供的类不会被自定义类替代。
+* 不同的类加载器可以为相同名称的类创建额外的命名空间，使其并存与JVM中。
+
+##### 命名空间
+
+每个类加载器都有自己的命名空间，该命名空间由该加载器及所有父加载器所记载的类组成。
+
+同一个命名空间中，不会出现类完整名字相同的两个类。
+
+不同的命名空间中，可能会出现类完整名字相同的两个类。
+
+##### 不同类加载器命名空间的关系
+
+* 同一个命名空间的类是相互可见的。
+* 子加载器命名空间包含所有父加载器的命名空间。子加载器能看见父加载器加载的类。
+* 父加载器加载的类不能看剧子加载器加载的类。
+* 加载器直接无直接或间接父子关系，那么各自加载的类互相不可见。
+
+##### 破坏双亲委派模型
+
+1. 该模型出现之前，ClassLoader的loadClass方法。
+
+   > JDK1.2后已不推荐覆盖loadClass方法，应当将类加载逻辑写到findClass方法中。如果loadClass逻辑里如果父类加载失败，会调用自己的findClass方法完成加载。
+
+2. 自身缺陷导致。越基础的类由越上层的加载器进行加载，如果基础类又要调用回用户的代码，那该怎么办？
+
+   > 解决方案：使用“线程上下文类加载器”
+   >
+   > Java中所有涉及SPI的加载动作基本上都采用这种方式，例如JNDI、JDBC、JCE、JAXB和JBI等
+
+3. 程序动态性追求。如：代码热替换（HotSwap）、模块热部署（Hot Deployment）等。
+
+   > OSGi实现模块化热部署的关键则是它自定义的类加载器机制的实现。每一个程序模块（OSGi中称为Bundle）都有一个自己的类加载器，当需要更换一个Bundle时，就把Bundle连同类加载器一起换掉以实现代码的热替换。
+   > 在OSGi环境下，类加载器不再是双亲委派模型中的树状结构，而是进一步发展为更加复杂的网状结构。
 
 ### Java内存模型
 
-
+[Java内存模型](http://tutorials.jenkov.com/java-concurrency/java-memory-model.html)
 
 ## 4. IO&NIO
 
@@ -400,9 +468,92 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 
 对于“prototype”作用域bean, Spring 容器无法完成依赖注入，因为Spring 容器不进行缓 存“prototype”作用域的bean ，因此无法提前暴露一个创建中的bean 。
 
-#### Spring事物分析
+#### Spring事物
 
+Spring中定义了事务的传播行为，一共有7种行为。默认是支持`PROPAGATION_REQUIRED`。
 
+可以区分为3类：
+
+##### 1. 支持当前事务
+
+* `PROPAGATION_REQUIRED`：如果当前存在事务，则使用；不存在，则创建新事务。
+* `PROPAGATION_SUPPORTS`：如果当前存在事务，则使用；不存在，则以非事务方式运行。
+* `PROPAGATION_MANDATORY`：如果当前存在事务，则使用；不存在，则抛异常。
+
+##### 2. 不支持当前事务
+
+* `PROPAGATION_REQUIRES_NEW`：总数创建新事务。如果当前存在事务，则挂起当前事务。
+* `PROPAGATION_NOT_SUPPORTED`：以非事务方式运行。如果当前存在事务，则挂起当前事务。
+* `PROPAGATION_NEVER`：以事务的方式运行。如果当前存在事务，则抛异常
+
+##### 3. 嵌套事务
+
+* `PROPAGATION_NESTED`：当前存在事务，则创建一个嵌套事务运行。没有，则等同于`PROPAGATION_REQUIRED`。
+
+最常用的为`PROPAGATION_REQUIRED`、`PROPAGATION_REQUIRES_NEW`、`PROPAGATION_NESTED`。
+
+##### 事务失效原因
+
+那么说了这么多，什么时候Spring的这个声明式事务会失效呢？
+
+* 底层数据库不支持事务。
+
+* 在非public修饰的方法使用。
+
+  * @Transactional注解使用的是AOP，使用动态代理时，只针对public方法代理。
+  * 源码在`AbstractFallbackTransactionAttributeSource`类的`computeTransactionAttribute`方法中。如果不是`public`修饰的方法，并不会抛异常，但是会导致事务失效。
+
+* 异常被try-catch完全捕获了。异常无法抛出，也会导致事务失败。
+
+  ~~~java
+  @Transactional
+  public void method(){
+    try{
+      //插入一条数据
+      //更改一条数据
+    }catch(Exception ex){
+      return;
+    }
+  }
+  ~~~
+
+* 方法中调用同类的方法
+
+  ~~~java
+  public class Test{
+    public void A(){
+      //插入一条数据
+      //调用B方法
+      B();
+    }
+    
+    @Transactional
+    public void B(){
+      //插入数据
+    }
+  }
+  ~~~
+
+  * 失效原因：Spring扫描Bean会自动为标注`@Transactional`注解类生成一个代理类，注解方法被调用时，实际上是代理类调用，代理类在调用前开启事务，执行事务操作。但是同类中方法互相调用，相当于`this.B()`，此时的B方法调用并非代理类调用，而是通过原有的Bean直接调用，所以注解就失败了。
+
+* rollbackFor属性设置错误
+
+* noRollbackFor属性设置错误
+
+* propagation属性设置错误，具体参考事务传播
+
+* 未被Spring管理
+
+* 数据源没有配置事务管理器
+
+* 异常类型错误
+
+  ~~~java
+  // 仅适用于 Throwable 异常类及其子类
+  @Transactional(rollbackFor = Exception.class)
+  ~~~
+
+  
 
 #### Spring拦截器原理
 

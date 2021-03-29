@@ -324,6 +324,13 @@ Worker线程中run方法执行 `runWorker(Worker w)`，执行过程如下：
 
 但由于引起线程销毁的可能性有很多，线程池还要判断是什么引发了这次销毁，是否要改变线程池的现阶段状态，是否要根据新状态，重新分配线程。
 
+##### 线程池的拒绝策略
+
+* CallerRunsPolicy：调用线程执行策略
+* AbortPolicy：拒绝策略，抛出异常
+* DiscardPolicy：丢弃策略，静默丢弃
+* DiscardOldestPolicy：丢弃最老任务，然后重新提交到线程池中（execute）
+
 #### 实用小技巧
 
 在使用中，应当实现线程工厂，并命名线程池。
